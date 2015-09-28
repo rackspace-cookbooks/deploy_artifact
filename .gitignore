@@ -1,0 +1,43 @@
+*~
+*#
+.#*
+\#*#
+.*.sw[a-z]
+*.un~
+pkg/
+.chef
+test/integration/encrypted_data_bag_secret
+
+# Berkshelf
+.vagrant
+/cookbooks
+
+# Bundler
+Gemfile.lock
+bin/*
+.bundle/*
+
+.kitchen/
+.kitchen.local.yml
+
+# chefspec
+.coverage/
+
+# Chef
+thor.pem
+knife.rb
+.chef/
+thor_berks_config.json
+rvm.env
+
+# misc
+.DS_Store
+
+# heat certificates
+heat/heatrc
+heat/myviolet.io-chain.cert
+heat/myviolet.io.cert
+heat/myviolet.io.key
+heat/vgtech.io-chain.cert
+heat/vgtech.io.cert
+heat/vgtech.io.key
