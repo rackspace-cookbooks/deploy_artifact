@@ -2,28 +2,27 @@
 
 ## Overview
 
-This cookbook provides a simple `deploy_artifact` resource library that will deploy a single binary or tar.gz file. The deployment process is designed to mirror the [Deploy Resource](https://docs.chef.io/resource_deploy.html) except to be used only for local deployments. It is assumed that a directory will already contain the contents of what is to be deployed and requires no knowledge on how that file is to be transferred to the client machine which is left up you to decide on.
+This cookbook provides a simple `deploy_artifact` resource that will deploy a single binary or tar.gz file. The deployment process is designed to mirror the [Deploy Resource](https://docs.chef.io/resource_deploy.html) except designed to be used only for local deployments and not GIT. It is assumed that a directory called `cached-copy` will already contain the contents of what is to be deployed. It is left up to you on how to deliver the artifact while the resource will do the work to deploy it.
 
-Given a file location and path, the resource will:
+Given a `file` location and `path`, the resource will:
 - Create a directory structure:
 ```
 path\
     cached-copy\
     releases\
         <CHECKSUM>\
-    current\
+    current -> releases\<CHECKSUM>
 ```
-- Assume the file is a single binary or gziped tar file
-- Copy the referenced file to `path\cached-copy`
-- Create a release directory named as the MD5 checksum of the deployed file
-- On completion, symlink the release directory to `path\current`
+- Assume the `file` is a single binary or gziped tar file
+- Create a releases directory and release directory named as the MD5 checksum of the deployed `file` in `path`
+- On successful completion, symlink the release directory `releases\<CHECKSUM>` to `path\current`
 
 ## Resources\Providers
 
 - `deploy_artifact` - performs deployment of a local artifact on a server
 
 ## Actions
-- `deploy`: default action, will deploy a given file to a given path
+- `deploy`: default action, will deploy a given `file` to a given `path`
 
 ### :deploy
 
