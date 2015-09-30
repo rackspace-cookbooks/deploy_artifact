@@ -1,4 +1,4 @@
-# deploy_artifact
+# deploy_artifact [![Circle CI](https://circleci.com/gh/rackspace-cookbooks/deploy_artifact/tree/master.svg?style=svg)](https://circleci.com/gh/rackspace-cookbooks/deploy_artifact/tree/master)
 
 ## Overview
 
