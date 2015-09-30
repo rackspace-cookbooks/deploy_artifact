@@ -1,0 +1,11 @@
+DEPENDENCIES
+  deploy_artifact
+    path: .
+    metadata: true
+  deploy_artifact_test
+    path: test/fixtures/cookbooks/deploy_artifact_test
+
+GRAPH
+  deploy_artifact (0.0.1)
+  deploy_artifact_test (0.0.1)
+    deploy_artifact (>= 0.0.0)
