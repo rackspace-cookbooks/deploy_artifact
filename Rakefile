@@ -21,12 +21,6 @@ end
 desc 'Run all style checks'
 task style: ['style:chef', 'style:ruby']
 
-# Rspec and ChefSpec
-desc 'Run ChefSpec unit tests'
-RSpec::Core::RakeTask.new(:spec) do |t|
-  t.rspec_opts = 'test/unit'
-end
-
 # Integration tests - kitchen.ci
 desc 'Run Test Kitchen'
 namespace :integration do
@@ -66,7 +60,7 @@ namespace :integration do
 end
 
 desc 'Run all tests on CI Platform'
-task ci: ['style', 'spec', 'integration:cloud']
+task ci: ['style', 'integration:cloud']
 
 # Default
-task default: ['style', 'spec', 'integration:vagrant']
+task default: ['style', 'integration:vagrant']

@@ -21,8 +21,6 @@ test:
   override:
     - bundle exec rake style:
         timeout: 120
-    - bundle exec rake spec:
-        timeout: 120
     - bundle exec rake integration:cloud:verify:
         timeout: 600
   post:
