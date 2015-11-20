@@ -15,30 +15,42 @@ class Chef
         @current_resource.path(new_resource.path)
         @current_resource.owner(new_resource.owner)
         @current_resource.group(new_resource.group)
+        @current_resource.cache_path(new_resource.cache_path)
+        @current_resource.deploy_file(new_resource.deploy_file)
+        @current_resource.keep_releases(new_resource.keep_releases)
         @current_resource.before_symlink(new_resource.before_symlink)
         @current_resource.restart_command(new_resource.restart_command)
         @current_resource
       end
 
       action :deploy do
-        do_mkdir(cached_directory)
-        do_mkdir(releases_directory)
+        remove_stale_symlink
+
+        do_mkdir(cache_path)
+        do_deploy_file
+
+        do_mkdir(releases_directory) if current_resource.keep_releases
         do_mkdir(release_directory)
 
         do_deploy_cached
         do_before_symlink
-        remove_stale_symlink
         symlink_current
         do_restart_command
 
         check_old_releases
       end
 
+      def cache_path
+        current_resource.cache_path || ::File.join(new_resource.path, 'cached-copy')
+      end
+
       def releases_directory
+        return nil unless current_resource.keep_releases
         ::File.join(new_resource.path, 'releases')
       end
 
       def release_directory
+        return current_file unless current_resource.keep_releases
         ::File.join(releases_directory, cached_checksum)
       end
 
@@ -46,12 +58,8 @@ class Chef
         Chef::Digester.generate_md5_checksum_for_file(cached_file)
       end
 
-      def cached_directory
-        ::File.join(new_resource.path, 'cached-copy')
-      end
-
       def cached_file
-        ::File.join(cached_directory, new_resource.file)
+        ::File.join(cache_path, new_resource.file)
       end
 
       def release_file
@@ -84,6 +92,16 @@ class Chef
         end
       end
 
+      def do_deploy_file
+        callback = new_resource.deploy_file
+        return false unless callback.is_a?(Proc)
+        Chef::Log.info("#{new_resource} running deploy_file as embedded recipe")
+        converge_by('running deploy_file callback') do
+          recipe_eval(&new_resource.deploy_file)
+        end
+        new_resource.updated_by_last_action(true)
+      end
+
       def do_before_symlink
         callback = new_resource.before_symlink
         return false unless callback.is_a?(Proc)
@@ -105,6 +123,7 @@ class Chef
       end
 
       def check_old_releases
+        return unless current_resource.keep_releases
         old_releases = ::Dir.entries(releases_directory).sort_by do |a|
           ::File.mtime(::File.join(releases_directory, a))
         end
@@ -113,6 +132,7 @@ class Chef
 
       def symlink_current
         return if ::File.exist?(current_file)
+        return unless current_resource.keep_releases
         Chef::Log.info("#{new_resource} - creating symlink for current release #{release_file_checksum}")
         converge_by("linking new release #{release_file_checksum} as current") do
           ::File.symlink(release_file, current_file)
@@ -121,12 +141,11 @@ class Chef
       end
 
       def remove_stale_symlink
-        return unless ::File.exist?(release_directory)
         if ::File.exist?(current_file)
-          unless release_file_checksum == current_file_checksum
+          unless compare?(cached_file, current_file)
             Chef::Log.info("#{new_resource} - removing old current")
             converge_by('removing old current') do
-              ::File.unlink(current_file)
+              FileUtils.remove_entry_secure(current_file)
             end
             new_resource.updated_by_last_action(true)
           end

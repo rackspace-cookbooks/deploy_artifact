@@ -2,9 +2,9 @@
 
 ## Overview
 
-This cookbook provides a simple `deploy_artifact` resource that will deploy a single binary or tar.gz file. The deployment process is designed to mirror the [Deploy Resource](https://docs.chef.io/resource_deploy.html) except designed to be used only for local deployments and not GIT. It is assumed that a directory called `cached-copy` will already contain the contents of what is to be deployed. It is left up to you on how to deliver the artifact while the resource will do the work to deploy it.
+This cookbook provides a simple `deploy_artifact` resource that will deploy a single binary or tar.gz file. The deployment process is designed to mirror the [Deploy Resource](https://docs.chef.io/resource_deploy.html) except designed to be used only for local deployments and not GIT. It is assumed that a directory called `cached-copy` will already contain the contents of what is to be deployed if not configured. It is left up to you on how to deliver the artifact using the while the resource will do the work to deploy it.
 
-Given a `file` location and `path`, the resource will:
+Given a `file` location and `path`, the resource will by default:
 - Create a directory structure:
 ```
 path\
@@ -14,6 +14,7 @@ path\
     current -> releases\<CHECKSUM>
 ```
 - Assume the `file` is a single binary or gziped tar file
+- Create a `cached-copy` directory and expect the `file` to be present or use the `deploy_file` callback to create `file`
 - Create a releases directory and release directory named as the MD5 checksum of the deployed `file` in `path`
 - On successful completion, symlink the release directory `releases\<CHECKSUM>` to `path\current`
 
@@ -29,9 +30,12 @@ path\
 #### Resource Parameters for :deploy
 - `name` : defaults to `file` parameter
 - `file` : path to binary or `tar.gz` file to deploy, Required
-- `path` : path to location to deploy to, Required
+- `path` : path to location to deploy to, Default: `/opt`
 - `owner` : owner of the deployed files, Default: root
 - `group` : group of the deployed files, Default: root
+- `cache_path` : path to cache latest deployed file, Default: `{path}/cached-copy`
+- `keep_releases` : number of releases to keep or `false` to keep none, Default: 5
+- `deploy_file` : callback which takes a Ruby block of code to execute and deploy a file which is expected to be in `cache_path`.
 - `before_symlink` : callback which takes a Ruby block of code to execute before symlinking a release to current, Default: nothing
 - `restart_command` : callback which takes a Ruby block of code to execute after symlinkinga release to current which can be used to restart applications if needed, Default: nothing
 
@@ -40,17 +44,18 @@ path\
 ### Deploy tarball from Rackspace Cloud Files
 
 ```
-rackspacecloud_file '/var/www/app/cached-copy/deploy.tar.gz' do
-  directory 'deploy.tar.gz'
-  rackspace_username 'username'
-  rackspace_api_key 'api_key'
-  rackspace_region 'dfw'
-  action :create
-end
-
 deploy_artifact 'deploy.tar.gz' do
   path '/var/www/app'
   action :deploy
+  deploy_file do
+    rackspacecloud_file '/var/www/app/cached-copy/deploy.tar.gz' do
+      directory 'deploy.tar.gz'
+      rackspace_username 'username'
+      rackspace_api_key 'api_key'
+      rackspace_region 'dfw'
+      action :create
+    end
+  end
 end
 ```
 
@@ -59,10 +64,37 @@ end
 deploy_artifact 'deploy.tar.gz' do
   path '/var/www/app'
   action :deploy
+  deploy_file do
+    rackspacecloud_file '/var/www/app/cached-copy/deploy.tar.gz' do
+      directory 'deploy.tar.gz'
+      rackspace_username 'username'
+      rackspace_api_key 'api_key'
+      rackspace_region 'dfw'
+      action :create
+    end
+  end
   restart_command do
     service 'unicorn-app' do
       action :restart
-   end
+    end
+  end
+end
+```
+
+### Deploy tarball to a specific `cache_path`
+```
+deploy_artifact 'deploy.tar.gz' do
+  path '/var/www/app'
+  cache_path '/tmp'
+  action :deploy
+  deploy_file do
+    rackspacecloud_file '/var/www/app/cached-copy/deploy.tar.gz' do
+      directory 'deploy.tar.gz'
+      rackspace_username 'username'
+      rackspace_api_key 'api_key'
+      rackspace_region 'dfw'
+      action :create
+    end
   end
 end
 ```
