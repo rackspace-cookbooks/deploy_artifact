@@ -226,7 +226,7 @@ class Chef
                   ::FileUtils.chmod(tarfile.header.mode, destination_file, verbose: false)
                   ::FileUtils.touch(destination_file, mtime: tarfile.header.mtime)
                   ::FileUtils.chown(get_uid(tarfile), get_gid(tarfile), destination_file)
-                elsif tarfilee.header.typeflag == '2' # Create symlink!
+                elsif tarfile.header.typeflag == '2' # Create symlink!
                   ::File.symlink tarfile.header.linkname, destination_file
                 end
               end
