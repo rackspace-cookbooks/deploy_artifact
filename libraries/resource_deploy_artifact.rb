@@ -13,6 +13,8 @@ class Chef
         @path = '/opt'
         @owner = 'root'
         @group = 'root'
+        @cache_path = nil
+        @keep_releases = 5
       end
 
       def file(arg = nil)
@@ -29,6 +31,19 @@ class Chef
 
       def group(arg = nil)
         set_or_return(:group, arg, :kind_of => [String]) # rubocop:disable HashSyntax
+      end
+
+      def cache_path(arg = nil)
+        set_or_return(:cache_path, arg, :kind_of => [String]) # rubocop:disable HashSyntax
+      end
+
+      def keep_releases(arg = nil)
+        set_or_return(:keep_releases, arg, :kind_of => [TrueClass, FalseClass, Integer]) # rubocop:disable HashSyntax
+      end
+
+      def deploy_file(arg = nil, &block)
+        arg ||= block
+        set_or_return(:deploy_file, arg, :kind_of => [Proc, String]) # rubocop:disable HashSyntax
       end
 
       def before_symlink(arg = nil, &block)

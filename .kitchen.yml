@@ -16,6 +16,9 @@ platforms:
   - name: ubuntu-14.04
 
 suites:
-  - name: default
+  - name: tarball
     run_list:
       - recipe[deploy_artifact_test::default]
+      - recipe[deploy_artifact_test::deploy_file]
+      - recipe[deploy_artifact_test::cache_path]
+      - recipe[deploy_artifact_test::keep_releases]
