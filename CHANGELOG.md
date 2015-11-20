@@ -1,5 +1,9 @@
 deploy_artifact CHANGELOG
 
+1.1.1
+-----
+- Fix for untar function with symlinks
+
 1.1.0
 -----
 - Added option keep_releases, an option which defines either how many releases to keep or to not keep
