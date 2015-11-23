@@ -24,12 +24,12 @@ class Chef
       end
 
       action :deploy do
-        remove_stale_symlink
+        remove_stale
 
         do_mkdir(cache_path)
         do_deploy_file
 
-        do_mkdir(releases_directory) if current_resource.keep_releases
+        do_mkdir(releases_directory)
         do_mkdir(release_directory)
 
         do_deploy_cached
@@ -45,12 +45,10 @@ class Chef
       end
 
       def releases_directory
-        return nil unless current_resource.keep_releases
         ::File.join(new_resource.path, 'releases')
       end
 
       def release_directory
-        return current_file unless current_resource.keep_releases
         ::File.join(releases_directory, cached_checksum)
       end
 
@@ -76,7 +74,6 @@ class Chef
       end
 
       def release_file_checksum
-        # TODO: calculate archive targz
         if targz?
           ::File.basename(release_directory)
         else
@@ -132,7 +129,6 @@ class Chef
 
       def symlink_current
         return if ::File.exist?(current_file)
-        return unless current_resource.keep_releases
         Chef::Log.info("#{new_resource} - creating symlink for current release #{release_file_checksum}")
         converge_by("linking new release #{release_file_checksum} as current") do
           ::File.symlink(release_file, current_file)
@@ -140,11 +136,11 @@ class Chef
         new_resource.updated_by_last_action(true)
       end
 
-      def remove_stale_symlink
+      def remove_stale
         if ::File.exist?(current_file)
           unless compare?(cached_file, current_file)
-            Chef::Log.info("#{new_resource} - removing old current")
-            converge_by('removing old current') do
+            Chef::Log.info("#{new_resource} - removing non-matching release to re-deploy")
+            converge_by('removing non-matching release to re-deploy') do
               FileUtils.remove_entry_secure(current_file)
             end
             new_resource.updated_by_last_action(true)
@@ -165,37 +161,28 @@ class Chef
         new_resource.updated_by_last_action(true)
       end
 
-      # If release directory is present, see if it does not match and remove to re-deploy
-      def check_if_released
-        return unless compare?(cached_file, release_file)
-
-        Chef::Log.info("#{new_resource} - removing non-matching release to re-deploy")
-        converge_by("removing non-matching release #{release_file_checksum}") do
-          ::File.unlink(release_file)
-        end
-      end
-
       def compare?(old_file, new_file)
-        if targz?
-          ::File.open(old_file, 'rb') do |file|
-            ::Zlib::GzipReader.wrap(file) do |io|
-              ::Gem::Package::TarReader.new(io) do |tar|
-                tar.each do |tarfile|
-                  return false unless ::Dir.entries(new_file).include?(tarfile)
-                end
-              end
-            end
-          end
+        old_checksum = Chef::Digester.generate_md5_checksum_for_file(old_file)
+        if ::File.symlink?(new_file)
+          return ::File.fnmatch("*/#{old_checksum}", ::File.readlink(new_file))
         else
-          return if ::File.directory?(new_file)
+          return false if ::File.directory?(new_file)
           new_checksum = Chef::Digester.generate_md5_checksum_for_file(new_file)
-          old_checksum = Chef::Digester.generate_md5_checksum_for_file(old_file)
           return new_checksum == old_checksum
         end
       end
 
+      def _compare_tar?(tarfile)
+        targz(tarfile).each do |entry|
+          dest_file = entry.header.typeflag == ('L' || 'K') ? entry.read.strip : entry.full_name
+          dest = ::File.join(new_file, dest_file)
+          return false unless ::File.exist?(dest)
+        end
+        true
+      end
+
       def do_release
-        return if compare?(cached_file, release_file)
+        return unless (::Dir.entries(release_directory) - %w( . .. )).empty?
         if targz?
           Chef::Log.info("#{new_resource} - untaring cached file #{cached_checksum} into release directory")
           converge_by("untaring cached file #{cached_checksum} to release directory #{release_directory}") do
@@ -211,28 +198,57 @@ class Chef
 
       def untar(cached_copy, destination)
         return unless targz?
-        ::File.open(cached_copy, 'rb') do |file|
-          ::Zlib::GzipReader.wrap(file) do |io|
-            ::Gem::Package::TarReader.new(io) do |tar|
-              tar.each do |tarfile|
-                destination_file = ::File.join(destination, tarfile.full_name)
-                if tarfile.directory? # Create directory
-                  ::FileUtils.mkdir_p(destination_file, mode: tarfile.header.mode, verbose: false)
-                  ::FileUtils.chown(get_uid(tarfile), get_gid(tarfile), destination_file)
-                elsif tarfile.file? # Create file
-                  ::File.open destination_file, 'wb' do |f|
-                    f.write tarfile.read
-                  end
-                  ::FileUtils.chmod(tarfile.header.mode, destination_file, verbose: false)
-                  ::FileUtils.touch(destination_file, mtime: tarfile.header.mtime)
-                  ::FileUtils.chown(get_uid(tarfile), get_gid(tarfile), destination_file)
-                elsif tarfile.header.typeflag == '2' # Create symlink!
-                  ::File.symlink tarfile.header.linkname, destination_file
-                end
-              end
-            end
+        tar_open(gzip_stream(cached_copy)).each do |entry|
+          dest_file = entry.header.typeflag == ('L' || 'K') ? entry.read.strip : entry.full_name
+          dest = ::File.join(destination, dest_file)
+
+          unless dir_untar(entry, dest) || file_untar(entry, dest) || symlink_untar(entry, dest)
+            puts "Unkown tar entry: #{entry.full_name} type: #{entry.header.typeflag}."
           end
         end
+      end
+
+      def file_open(tarfile)
+        ::File.open(tarfile, 'rb')
+      rescue StandardError => e
+        Chef::Log.warn e.message
+        raise e
+      end
+
+      def tar_open(tarfile)
+        Gem::Package::TarReader.new(tarfile)
+      rescue Gem::Package::TarInvalidError
+        return false
+      end
+
+      def gzip_stream(file)
+        Zlib::GzipReader.new(file_open(file))
+      rescue Zlib::GzipFile::Error
+        file.rewind
+        file_open(file)
+      end
+
+      def dir_untar(entry, dest)
+        return unless entry.directory? || (entry.header.typeflag == '' && entry.full_name.end_with?('/'))
+        ::File.delete(dest) if ::File.file?(dest)
+        ::FileUtils.mkdir_p(dest, mode: entry.header.mode, verbose: false)
+        ::FileUtils.chown(get_uid(entry), get_gid(entry), dest)
+      end
+
+      def file_untar(entry, dest)
+        return unless entry.file? || (entry.header.typeflag == '' && !entry.full_name.end_with?('/'))
+        ::FileUtils.rm_rf(dest) if ::File.directory?(dest)
+        ::File.open dest, 'wb' do |f|
+          f.write entry.read
+        end
+        ::FileUtils.chmod(entry.header.mode, dest, verbose: false)
+        ::FileUtils.touch(dest, mtime: entry.header.mtime)
+        ::FileUtils.chown(get_uid(entry), get_gid(entry), dest)
+      end
+
+      def symlink_untar(entry, dest)
+        return unless entry.header.typeflag == '2' # Create symlink
+        ::File.symlink(entry.header.linkname, dest)
       end
 
       def get_uid(file)
@@ -249,6 +265,10 @@ class Chef
 
       def targz?
         ::File.fnmatch('*.tar.gz', new_resource.file)
+      end
+
+      def targz(file)
+        tar_open(gzip_stream(file))
       end
     end
   end
