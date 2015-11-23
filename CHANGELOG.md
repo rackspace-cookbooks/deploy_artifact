@@ -1,5 +1,16 @@
 deploy_artifact CHANGELOG
 
+1.2.0
+-----
+- Fix for compare method
+- Removed check_if_released method in favor of just remove_stale
+- Fix for removing stale current/releases
+- Fix to do_deploy only when releases directory is empty
+- Removed direct deploy to current directory when keep_releases false due to being infeasible
+- Added handling of @LongLink tar entries
+- Re-write untar method to be less complex adding helper methods file_open, tar_open, gzip_stream, dir_untar, file_untar, symlink_untar
+- Updated testingu
+
 1.1.1
 -----
 - Fix for untar function with symlinks
