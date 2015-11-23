@@ -1,5 +1,9 @@
 deploy_artifact CHANGELOG
 
+1.2.1
+-----
+- Fix for LongLink and LongName detection into its own method for untar
+
 1.2.0
 -----
 - Fix for compare method
