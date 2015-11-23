@@ -199,13 +199,21 @@ class Chef
       def untar(cached_copy, destination)
         return unless targz?
         tar_open(gzip_stream(cached_copy)).each do |entry|
-          dest_file = entry.header.typeflag == ('L' || 'K') ? entry.read.strip : entry.full_name
-          dest = ::File.join(destination, dest_file)
+          dest = tar_dest(destination, entry)
 
           unless dir_untar(entry, dest) || file_untar(entry, dest) || symlink_untar(entry, dest)
             puts "Unkown tar entry: #{entry.full_name} type: #{entry.header.typeflag}."
           end
         end
+      end
+
+      def tar_dest(destination, entry)
+        if entry.header.typeflag == 'L' || entry.header.typeflag == 'K'
+          dest_file = entry.read.strip
+        else
+          dest_file = entry.full_name
+        end
+        ::File.join(destination, dest_file)
       end
 
       def file_open(tarfile)
