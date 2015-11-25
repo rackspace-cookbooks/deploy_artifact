@@ -33,7 +33,7 @@ class Chef
         do_mkdir(release_directory)
 
         do_deploy_cached
-        symlink_current
+        do_deploy_release
 
         check_old_releases
       end
@@ -125,9 +125,9 @@ class Chef
         Chef::Log.info("#{new_resource} old_releases #{old_releases}")
       end
 
-      def symlink_current
+      def do_deploy_release
         return if ::File.exist?(current_file)
-        do_restart_command
+        do_before_symlink
         Chef::Log.info("#{new_resource} - creating symlink for current release #{release_file_checksum}")
         converge_by("linking new release #{release_file_checksum} as current") do
           ::File.symlink(release_file, current_file)
