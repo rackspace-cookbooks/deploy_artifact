@@ -33,9 +33,7 @@ class Chef
         do_mkdir(release_directory)
 
         do_deploy_cached
-        do_before_symlink
         symlink_current
-        do_restart_command
 
         check_old_releases
       end
@@ -129,10 +127,12 @@ class Chef
 
       def symlink_current
         return if ::File.exist?(current_file)
+        do_restart_command
         Chef::Log.info("#{new_resource} - creating symlink for current release #{release_file_checksum}")
         converge_by("linking new release #{release_file_checksum} as current") do
           ::File.symlink(release_file, current_file)
         end
+        do_restart_command
         new_resource.updated_by_last_action(true)
       end
 
@@ -197,23 +197,24 @@ class Chef
       end
 
       def untar(cached_copy, destination)
-        return unless targz?
-        tar_open(gzip_stream(cached_copy)).each do |entry|
-          dest = tar_dest(destination, entry)
-
-          unless dir_untar(entry, dest) || file_untar(entry, dest) || symlink_untar(entry, dest)
+        dest = nil
+        targz(cached_copy).each do |entry|
+          dest ||= ::File.join(destination, entry.full_name)
+          case entry.header.typeflag
+          when '0'
+            untar_file(entry, dest)
+          when '5'
+            untar_dir(entry, dest)
+          when '2'
+            untar_symlink(entry, dest)
+          when 'L', 'K'
+            dest = ::File.join(destination, entry.read.strip)
+            next
+          else
             puts "Unkown tar entry: #{entry.full_name} type: #{entry.header.typeflag}."
           end
+          dest = nil
         end
-      end
-
-      def tar_dest(destination, entry)
-        if entry.header.typeflag == 'L' || entry.header.typeflag == 'K'
-          dest_file = entry.read.strip
-        else
-          dest_file = entry.full_name
-        end
-        ::File.join(destination, dest_file)
       end
 
       def file_open(tarfile)
@@ -236,15 +237,13 @@ class Chef
         file_open(file)
       end
 
-      def dir_untar(entry, dest)
-        return unless entry.directory? || (entry.header.typeflag == '' && entry.full_name.end_with?('/'))
+      def untar_dir(entry, dest)
         ::File.delete(dest) if ::File.file?(dest)
         ::FileUtils.mkdir_p(dest, mode: entry.header.mode, verbose: false)
         ::FileUtils.chown(get_uid(entry), get_gid(entry), dest)
       end
 
-      def file_untar(entry, dest)
-        return unless entry.file? || (entry.header.typeflag == '' && !entry.full_name.end_with?('/'))
+      def untar_file(entry, dest)
         ::FileUtils.rm_rf(dest) if ::File.directory?(dest)
         ::File.open dest, 'wb' do |f|
           f.write entry.read
@@ -254,8 +253,7 @@ class Chef
         ::FileUtils.chown(get_uid(entry), get_gid(entry), dest)
       end
 
-      def symlink_untar(entry, dest)
-        return unless entry.header.typeflag == '2' # Create symlink
+      def untar_symlink(entry, dest)
         ::File.symlink(entry.header.linkname, dest)
       end
 
