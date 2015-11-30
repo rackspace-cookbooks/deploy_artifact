@@ -9,7 +9,7 @@ deploy_artifact file do
   action :deploy
   deploy_file do
     remote_file "#{cache_path}/#{file}" do
-      source 'https://wordpress.org/latest.tar.gz'
+      source node['deploy_artifact_test']['targz']
       owner 'root'
       group 'root'
       mode '0755'

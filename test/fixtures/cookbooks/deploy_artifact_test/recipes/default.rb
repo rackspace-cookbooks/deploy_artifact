@@ -8,7 +8,7 @@ end
 
 # Download sample wordpress install
 remote_file '/var/www/cached-copy/latest.tar.gz' do
-  source 'https://wordpress.org/latest.tar.gz'
+  source node['deploy_artifact_test']['targz']
   owner 'root'
   group 'root'
   mode '0755'
