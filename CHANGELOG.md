@@ -1,5 +1,11 @@
 deploy_artifact CHANGELOG
 
+1.2.2
+-----
+- Fixes to fully support LongLink tar files
+- Changed symlink_current method name to do_deploy_release
+- Updating testing
+
 1.2.1
 -----
 - Fix for LongLink and LongName detection into its own method for untar

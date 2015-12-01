@@ -2,7 +2,7 @@
 
 ## Overview
 
-This cookbook provides a simple `deploy_artifact` resource that will deploy a single binary or tar.gz file. The deployment process is designed to mirror the [Deploy Resource](https://docs.chef.io/resource_deploy.html) except designed to be used only for local deployments and not GIT. It is assumed that a directory called `cached-copy` will already contain the contents of what is to be deployed if not configured. It is left up to you on how to deliver the artifact using the while the resource will do the work to deploy it.
+This cookbook provides a simple `deploy_artifact` resource that will deploy a single binary or tar.gz file. The deployment process is designed to mirror the [Deploy Resource](https://docs.chef.io/resource_deploy.html) except designed to be used only for local deployments and not GIT. It is assumed that a directory called `cached-copy` will already contain the contents of what is to be deployed if not configured. It is left up to you on how to deliver the artifact using the while the resource will do the work to deploy it. The resource determines whether a file should be deployed or not based off of the current `cached-copy` checksum and the current release directory checksum name. Mac PAX format tar files are not supported at this time.
 
 Given a `file` location and `path`, the resource will by default:
 - Create a directory structure:
@@ -13,10 +13,10 @@ path\
         <CHECKSUM>\
     current -> releases\<CHECKSUM>
 ```
-- Assume the `file` is a single binary or gziped tar file
-- Create a `cached-copy` directory and expect the `file` to be present or use the `deploy_file` callback to create `file`
-- Create a releases directory and release directory named as the MD5 checksum of the deployed `file` in `path`
-- On successful completion, symlink the release directory `releases\<CHECKSUM>` to `path\current`
+- Assume the `file` is a single binary, gziped gnu-tar or gnu-tar file
+- Create a `cached-copy` directory and expect the `file` to be present or use the `deploy_file` callback to create `file`.
+- Create a releases directory and release directory named as the MD5 checksum of the deployed `file` in `path`.
+- On successful completion, symlink the release directory `releases\<CHECKSUM>` to `path\current`.
 
 ## Resources\Providers
 
@@ -38,6 +38,14 @@ path\
 - `deploy_file` : callback which takes a Ruby block of code to execute and deploy a file which is expected to be in `cache_path`.
 - `before_symlink` : callback which takes a Ruby block of code to execute before symlinking a release to current, Default: nothing
 - `restart_command` : callback which takes a Ruby block of code to execute after symlinkinga release to current which can be used to restart applications if needed, Default: nothing
+
+#### Methods Available for Callbacks
+Within a Ruby block used with one of the provided callbacks, you may use the following methods to determine path or files you may wish to act on. From a library perspective, they are resource values compiled during the resource execution, not from before or after.
+- `cache_path` : path being used to deploy from
+- `cached_file` : path of file calculated from `file` parameter and `cache_path` method
+- `cached_checksum` : calculated checksum of `cached_file`
+- `releases_directory` : path of parent releases directory calculated by appending `releases` to `path` paramter
+- `release_directory` : path of current release being deployed from `releases_directory` and `cached_checksum`
 
 ## Examples
 
