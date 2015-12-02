@@ -14,7 +14,7 @@ describe file("/var/www/releases/#{cached_checksum}") do
   it { should be_directory }
 end
 
-describe command("tar --compare -f /var/www/cached-copy/latest.tar.gz -C /var/www/releases/#{cached_checksum}") do
+describe command("tar --compare -f /var/www/cached-copy/latest.tar.gz \
+                 -C /var/www/releases/#{cached_checksum} | grep -Ev 'Uid|Gid'") do
   its(:stdout) { should match('') }
-  its(:exit_status) { should eq 0 }
 end

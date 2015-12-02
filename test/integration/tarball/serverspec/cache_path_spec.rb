@@ -15,7 +15,6 @@ describe file("/var/cache_path/releases/#{cached_checksum}") do
 end
 
 describe command("tar --compare -f /tmp/cache_path.tar.gz \
-                 -C /var/cache_path/releases/#{cached_checksum}") do
+                 -C /var/cache_path/releases/#{cached_checksum} | grep -Ev 'Uid|Gid'") do
   its(:stdout) { should match('') }
-  its(:exit_status) { should eq 0 }
 end
