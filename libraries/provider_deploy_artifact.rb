@@ -87,6 +87,15 @@ class Chef
         end
       end
 
+      def do_chown(directory)
+        return unless ::File.exist?(directory)
+        Chef::Log.info("#{new_resource} Changing permissions to #{new_resource.owner}:#{new_resource.group}
+                       on #{directory} recursively")
+        converge_by("changing ownership for #{directory} recursively") do
+          FileUtils.chown_R(new_resource.owner, new_resource.group, directory)
+        end
+      end
+
       def do_deploy_file
         callback = new_resource.deploy_file
         return false unless callback.is_a?(Proc)
@@ -128,6 +137,7 @@ class Chef
       def do_deploy_release
         return if ::File.exist?(current_file)
         do_before_symlink
+        do_chown(release_file)
         Chef::Log.info("#{new_resource} - creating symlink for current release #{release_file_checksum}")
         converge_by("linking new release #{release_file_checksum} as current") do
           ::File.symlink(release_file, current_file)
