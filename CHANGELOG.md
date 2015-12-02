@@ -1,5 +1,10 @@
 deploy_artifact CHANGELOG
 
+1.3.0
+----
+- Added do_chown method to recursively change permissions to owner and group resource parameters
+- Updated testing which failed if owner and group did not match
+
 1.2.3
 -----
 - Fixed issue with remove_stale method failing if cached_file was not present
