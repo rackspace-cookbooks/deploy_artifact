@@ -137,7 +137,7 @@ class Chef
       end
 
       def remove_stale
-        if ::File.exist?(current_file)
+        if ::File.exist?(current_file) && ::File.exist?(cached_file)
           unless compare?(cached_file, current_file)
             Chef::Log.info("#{new_resource} - removing non-matching release to re-deploy")
             converge_by('removing non-matching release to re-deploy') do
