@@ -1,5 +1,10 @@
 deploy_artifact CHANGELOG
 
+1.2.3
+-----
+- Fixed issue with remove_stale method failing if cached_file was not present
+- Added centos 7 support
+
 1.2.2
 -----
 - Fixes to fully support LongLink tar files
