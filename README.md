@@ -2,6 +2,12 @@
 
 ## Overview
 
+#### Supports and Tested Against
+- CentOS 6.7
+- CentOS 7.1
+- Ubuntu 12.04 LTS
+- Ubuntu 14.04 LTS
+
 This cookbook provides a simple `deploy_artifact` resource that will deploy a single binary or tar.gz file. The deployment process is designed to mirror the [Deploy Resource](https://docs.chef.io/resource_deploy.html) except designed to be used only for local deployments and not GIT. It is assumed that a directory called `cached-copy` will already contain the contents of what is to be deployed if not configured. It is left up to you on how to deliver the artifact using the while the resource will do the work to deploy it. The resource determines whether a file should be deployed or not based off of the current `cached-copy` checksum and the current release directory checksum name. Mac PAX format tar files are not supported at this time.
 
 Given a `file` location and `path`, the resource will by default:
