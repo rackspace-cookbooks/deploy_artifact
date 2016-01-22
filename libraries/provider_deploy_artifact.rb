@@ -173,13 +173,10 @@ class Chef
 
       def compare?(old_file, new_file)
         old_checksum = Chef::Digester.generate_md5_checksum_for_file(old_file)
-        if ::File.symlink?(new_file)
-          return ::File.fnmatch("*/#{old_checksum}", ::File.readlink(new_file))
-        else
-          return false if ::File.directory?(new_file)
-          new_checksum = Chef::Digester.generate_md5_checksum_for_file(new_file)
-          return new_checksum == old_checksum
-        end
+        return ::File.fnmatch("*/#{old_checksum}", ::File.readlink(new_file)) if ::File.symlink?(new_file)
+        return false if ::File.directory?(new_file)
+        new_checksum = Chef::Digester.generate_md5_checksum_for_file(new_file)
+        return new_checksum == old_checksum
       end
 
       def _compare_tar?(tarfile)
