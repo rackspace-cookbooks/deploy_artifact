@@ -198,7 +198,7 @@ class Chef
         else
           Chef::Log.info("#{new_resource} - copying cached file #{cached_checksum} into release directory")
           converge_by("copy cached file #{cached_checksum} to release directory #{release_directory}") do
-            FileUtils.cp(cached_copy, release_directory)
+            FileUtils.cp(cached_file, release_directory)
           end
         end
       end
