@@ -4,7 +4,7 @@ general:
 
 machine:
   ruby:
-    version: 2.1.5
+    version: 2.2.3
   environment:
     KITCHEN_LOCAL_YAML: .kitchen.cloud.yml
 
@@ -15,7 +15,7 @@ dependencies:
     - ssh-keygen -f ~/.ssh/id_rsa -q -N ""
   override:
     - bundle install --path=~/bundle --jobs=4 --retry=3:
-        timeout: 600
+        timeout: 1200
 
 test:
   override:
