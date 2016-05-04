@@ -17,6 +17,9 @@ platforms:
   - name: ubuntu-14.04
 
 suites:
+  - name: default
+    run_list:
+      - recipe[deploy_artifact_test::default]
   - name: tarball
     run_list:
       - recipe[deploy_artifact_test::default]
