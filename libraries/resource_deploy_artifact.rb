@@ -15,6 +15,8 @@ class Chef
         @group = 'root'
         @cache_path = nil
         @keep_releases = 5
+        @symlinks = {}
+        @create_dirs_before_symlink = []
       end
 
       def file(arg = nil)
@@ -54,6 +56,14 @@ class Chef
       def restart_command(arg = nil, &block)
         arg ||= block
         set_or_return(:restart_command, arg, :kind_of => [Proc, String]) # rubocop:disable HashSyntax
+      end
+
+      def symlinks(arg = nil)
+        set_or_return(:symlinks, arg, :kind_of => [Hash]) # rubocop:disable HashSyntax
+      end
+
+      def create_dirs_before_symlink(arg = nil)
+        set_or_return(:create_dirs_before_symlink, arg, :kind_of => [Array]) # rubocop:disable HashSyntax
       end
     end
   end
