@@ -1,4 +1,5 @@
 require 'chef/provider/lwrp_base'
+require 'chef/mixin/shell_out'
 require 'chef/digester'
 require 'fileutils'
 require 'etc'
@@ -8,6 +9,8 @@ class Chef
     # Chef Provider class for deploy_artifact
     class DeployArtifact < Chef::Provider::LWRPBase # rubocop:disable Metrics/ClassLength
       use_inline_resources if defined?(:use_inline_resources)
+
+      include Chef::Mixin::ShellOut
 
       def load_current_resource
         @current_resource ||= Chef::Resource::DeployArtifact.new(new_resource.name)
@@ -20,6 +23,8 @@ class Chef
         @current_resource.keep_releases(new_resource.keep_releases)
         @current_resource.before_symlink(new_resource.before_symlink)
         @current_resource.restart_command(new_resource.restart_command)
+        @current_resource.symlinks(new_resource.symlinks)
+        @current_resource.create_dirs_before_symlink(new_resource.create_dirs_before_symlink)
         @current_resource
       end
 
@@ -31,6 +36,7 @@ class Chef
 
         do_mkdir(releases_directory)
         do_mkdir(release_directory)
+        do_mkdir(shared_directory)
 
         do_deploy_cached
         do_deploy_release
@@ -48,6 +54,10 @@ class Chef
 
       def release_directory
         ::File.join(releases_directory, cached_checksum)
+      end
+
+      def shared_directory
+        ::File.join(new_resource.path, 'shared')
       end
 
       def cached_checksum
@@ -117,13 +127,19 @@ class Chef
       end
 
       def do_restart_command
-        callback = new_resource.restart_command
-        return false unless callback.is_a?(Proc)
-        Chef::Log.info("#{new_resource} running restart_command as embedded recipe")
-        converge_by('running restart_command') do
-          recipe_eval(&new_resource.restart_command)
+        restart_cmd = new_resource.restart_command
+        if restart_cmd
+          if restart_cmd.is_a?(Proc)
+            Chef::Log.info("#{new_resource} restarting app with embedded recipe")
+            recipe_eval(&restart_cmd)
+          else
+            converge_by("restart app using command #{new_resource.restart_command}") do
+              Chef::Log.info("#{new_resource} restarting app with command")
+              shell_out!(new_resource.restart_command, cwd: release_directory)
+            end
+          end
+          new_resource.updated_by_last_action(true)
         end
-        new_resource.updated_by_last_action(true)
       end
 
       def check_old_releases
@@ -137,6 +153,7 @@ class Chef
       def do_deploy_release
         return if ::File.exist?(current_file)
         do_before_symlink
+        link_tempfiles_to_current_release
         do_chown(release_file)
         Chef::Log.info("#{new_resource} - creating symlink for current release #{release_file_checksum}")
         converge_by("linking new release #{release_file_checksum} as current") do
@@ -198,7 +215,37 @@ class Chef
         else
           Chef::Log.info("#{new_resource} - copying cached file #{cached_checksum} into release directory")
           converge_by("copy cached file #{cached_checksum} to release directory #{release_directory}") do
-            FileUtils.cp(cached_copy, release_directory)
+            FileUtils.cp(cached_file, release_directory)
+          end
+        end
+      end
+
+      def link_tempfiles_to_current_release
+        dirs_info = new_resource.create_dirs_before_symlink.join(',')
+        new_resource.create_dirs_before_symlink.each do |dir|
+          do_mkdir(release_directory + "/#{dir}")
+        end
+        Chef::Log.info("#{new_resource} created directories before symlinking: #{dirs_info}")
+
+        links_info = new_resource.symlinks.map { |src, dst| "#{src} => #{dst}" }.join(', ')
+        converge_by("link shared paths into current release: #{links_info}") do
+          new_resource.symlinks.each do |src, dest|
+            begin
+              FileUtils.ln_sf(::File.join(shared_directory, src), ::File.join(release_directory, dest))
+            rescue => e
+              raise Chef::Exceptions::FileNotFound, "Cannot symlink shared data \
+                #{::File.join(shared_directory, src)} to #{::File.join(release_directory, dest)}: #{e.message}"
+            end
+          end
+          Chef::Log.info("#{new_resource} linked shared paths into current release: #{links_info}")
+        end
+      end
+
+      def run_callback_from_file(callback_file)
+        Chef::Log.info "#{@new_resource} queueing checkdeploy hook #{callback_file}"
+        recipe_eval do
+          Dir.chdir(release_directory) do
+            from_file(callback_file) if ::File.exist?(callback_file)
           end
         end
       end
